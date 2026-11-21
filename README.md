@@ -10,7 +10,7 @@ Expo (React Native) mobil uygulaması + bağımlılıksız bir Node.js sunucusun
 
 | Alan | Ne yapar | Veri |
 |---|---|---|
-| **Ana sayfa** | Trafik endeksi, kategori kartları, kayıtlı yerler (Ev / İş), favori hat / durak / metro / otopark | – |
+| **Ana sayfa** | Trafik endeksi, kategori kartları, **kayıtlı yerler** (Ev / İş / yıldızlı yer; her kartta araçla trafikli ve otobüsle varış süresi), favori hat / durak / metro / otopark | İBB UYM, OSRM, kendi rota planlayıcı |
 | **Otobüs** | Canlı otobüs konumu, hat güzergâhı ve animasyonu, gidiş/dönüş rengi, yön oku, durak varış tahmini, hat uyarıları, planlı kalkış saatleri | İETT SOAP, iett.istanbul |
 | **Metro / tramvay** | Hatlar, istasyonlar, yakın istasyonda sıradaki seferler | Metro İstanbul API |
 | **Marmaray ve M11** | Marmaray ile Havalimanı metrosu (M11) hat çizgisi ve istasyonları (statik, planlı) | İBB GTFS, OpenStreetMap |
@@ -32,9 +32,10 @@ Expo (React Native) mobil uygulaması + bağımlılıksız bir Node.js sunucusun
 <p align="center">
   <img src="docs/screenshots/06-hat.png" width="23%" alt="Hat modu: güzergâh, canlı otobüsler, planlı kalkış">
   <img src="docs/screenshots/05-ispark-detay.png" width="23%" alt="Otopark kartı">
+  <img src="docs/screenshots/07-kayitli-yerler.png" width="23%" alt="Kayıtlı yerler: araçla ve otobüsle varış süresi">
 </p>
 
-*Ana sayfa · renkli trafik · metro · İSPARK · hat modu · otopark kartı. Görüntüler iOS Simülatörü'nden, canlı veriyle alınmıştır.*
+*Ana sayfa · renkli trafik · metro · İSPARK · hat modu · otopark kartı · kayıtlı yerler (araçla/otobüsle süre). Görüntüler iOS Simülatörü'nden, canlı veriyle alınmıştır.*
 
 ## Mimari
 
