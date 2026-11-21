@@ -1,0 +1,14 @@
+{
+  "name": "İstanbul Ulaşım",
+  "short_name": "İst Ulaşım",
+  "description": "Canlı otobüs, metro ve vapur haritası",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14171a",
+  "theme_color": "#0b6bcb",
+  "lang": "tr",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

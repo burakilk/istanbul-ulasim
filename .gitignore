@@ -1,0 +1,17 @@
+node_modules/
+.DS_Store
+.claude/
+.expo/
+mobile/ios/
+mobile/android/
+mobile/dist/
+*.log
+.env
+.env.*
+
+# üretilen / çalışma zamanı önbellekleri
+data/routes.json
+data/busline.json
+data/ratelimit.json
+data/ferry_times.json
+data/traffic_segments.json

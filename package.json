@@ -1,0 +1,8 @@
+{
+  "name": "istanbul-transport",
+  "version": "0.1.0",
+  "description": "İstanbul canlı toplu ulaşım haritası: otobüs, metro, vapur",
+  "type": "module",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=22" }
+}

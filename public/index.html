@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>İstanbul Ulaşım</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0b6bcb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="İst Ulaşım">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root { --bg:#fff; --fg:#1a1d21; --muted:#6b7280; --card:#ffffffee; --line:#e5e7eb; --accent:#0b6bcb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171a; --fg:#eceff1; --muted:#9aa4ad; --card:#1d2125ee; --line:#2c3238; --accent:#4da3ff; } }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui, -apple-system, sans-serif; }
+  #map { position:absolute; inset:0; }
+  .panel { position:absolute; z-index:1000; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); max-width:420px;
+    background:var(--card); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:14px; padding:10px; box-shadow:0 4px 18px #0003; }
+  .row { display:flex; gap:8px; }
+  input[type=search] { flex:1; min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--fg); font:inherit; }
+  button { font:inherit; border:1px solid var(--line); background:var(--bg); color:var(--fg); border-radius:10px; padding:8px 12px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip { display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--line); border-radius:999px; cursor:pointer; user-select:none; background:var(--bg); }
+  .chip.on { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+  .chip i { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  #status { margin-top:8px; color:var(--muted); font-size:13px; }
+  .locate { position:absolute; z-index:1000; right:12px; bottom:calc(28px + env(safe-area-inset-bottom)); width:46px; height:46px; border-radius:50%; font-size:20px; padding:0; box-shadow:0 4px 14px #0004; }
+  .leaflet-popup-content { margin:10px 12px; font:14px/1.4 system-ui; }
+  .leaflet-popup-content b { font-size:15px; }
+  .tag { display:inline-block; padding:1px 7px; border-radius:6px; color:#fff; font-weight:600; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <form class="row" id="f">
+    <input type="search" id="q" placeholder="Hat ara (ör. 500T, 34, 15F)" autocomplete="off" enterkeyhint="search">
+    <button class="primary">Ara</button>
+  </form>
+  <div class="chips" id="chips"></div>
+  <div id="status">Yükleniyor…</div>
+</div>
+<button class="locate" id="loc" title="Konumum" aria-label="Konumum">◎</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([41.03, 28.98], 11);
+L.control.zoom({ position: 'bottomleft' }).addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '© OpenStreetMap katkıda bulunanlar · Veri: İBB/İETT, Metro İstanbul'
+}).addTo(map);
+
+const canvas = L.canvas({ padding: 0.3 });
+const layers = {
+  bus:    { label: 'Otobüs',  color: '#e11d48', on: true,  group: L.layerGroup().addTo(map) },
+  metro:  { label: 'Metro',   color: '#7c3aed', on: true,  group: L.layerGroup().addTo(map) },
+  ferry:  { label: 'Vapur',   color: '#0891b2', on: true,  group: L.layerGroup().addTo(map) },
+  stops:  { label: 'Duraklar',color: '#2563eb', on: false, group: L.layerGroup() },
+};
+const LINE_COLORS = { M1A:'#e4002b', M1B:'#e4002b', M2:'#00a651', M3:'#00a0c6', M4:'#e6007e', M5:'#7b3f98', M6:'#a47b4c', M7:'#f08ab1', M8:'#2e86c1', M9:'#f5c400', T1:'#0057b8', T3:'#f39200', T4:'#ef7d00', T5:'#8dc63f', F1:'#7a7a7a', F4:'#7a7a7a', TF1:'#555', TF2:'#555' };
+
+let busData = [], lineFilter = null, lineLayer = L.layerGroup().addTo(map), stopsData = [], metro = null;
+
+// ----- chip'ler -----
+const chips = $('#chips');
+for (const [k, v] of Object.entries(layers)) {
+  const el = document.createElement('div');
+  el.className = 'chip' + (v.on ? ' on' : '');
+  el.innerHTML = `<i style="background:${v.color}"></i>${v.label}`;
+  el.onclick = () => { v.on = !v.on; el.classList.toggle('on', v.on); v.on ? v.group.addTo(map) : map.removeLayer(v.group); if (k === 'stops') drawStops(); if (k === 'bus') drawBuses(); };
+  chips.appendChild(el);
+}
+const status = t => $('#status').textContent = t;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const api = async p => { const r = await fetch(p); if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.status); return r.json(); };
+
+// ----- otobüsler -----
+function drawBuses() {
+  const g = layers.bus.group; g.clearLayers();
+  if (!layers.bus.on || lineFilter) return;
+  const b = map.getBounds().pad(0.1);
+  let n = 0;
+  for (const x of busData) {
+    if (!b.contains([x.lat, x.lon])) continue;
+    n++;
+    L.circleMarker([x.lat, x.lon], { renderer: canvas, radius: map.getZoom() > 14 ? 6 : 3, color: '#fff', weight: 1, fillColor: x.speed > 0 ? '#e11d48' : '#9ca3af', fillOpacity: .9 })
+      .bindPopup(`<b>${esc(x.id)}</b><br>Plaka: ${esc(x.plate || '-')}<br>Hız: ${x.speed} km/s<br>Son güncelleme: ${esc(x.time)}`)
+      .addTo(g);
+  }
+  status(`${busData.length} otobüs canlı · ekranda ${n}`);
+}
+async function loadBuses() {
+  try { busData = await api('/api/buses'); drawBuses(); }
+  catch (e) { status('Otobüs verisi alınamadı: ' + e.message); }
+}
+
+// ----- hat arama -----
+async function showLine(code) {
+  lineLayer.clearLayers();
+  if (!code) { lineFilter = null; drawBuses(); status(`${busData.length} otobüs canlı`); return; }
+  lineFilter = code.toUpperCase();
+  layers.bus.group.clearLayers();
+  try {
+    const a = await api('/api/line?code=' + encodeURIComponent(lineFilter));
+    if (!a.length) { status(`"${lineFilter}" hattında şu an aktif araç yok`); return; }
+    const pts = [];
+    for (const x of a) {
+      pts.push([x.lat, x.lon]);
+      L.circleMarker([x.lat, x.lon], { radius: 9, color: '#fff', weight: 2, fillColor: '#e11d48', fillOpacity: 1 })
+        .bindPopup(`<span class="tag" style="background:#e11d48">${esc(x.line)}</span> <b>${esc(x.id)}</b><br>${esc(x.name)}<br>Yön: ${esc(x.dir)}<br>Güncelleme: ${esc(x.time)}`)
+        .addTo(lineLayer);
+    }
+    map.fitBounds(L.latLngBounds(pts).pad(0.2));
+    status(`${lineFilter}: ${a.length} araç · ${esc(a[0].name)}`);
+  } catch (e) { status('Hat alınamadı: ' + e.message); }
+}
+$('#f').onsubmit = e => { e.preventDefault(); showLine($('#q').value.trim()); };
+$('#q').addEventListener('input', e => { if (!e.target.value) showLine(''); });
+
+// ----- duraklar (yakınlaşınca) -----
+function drawStops() {
+  const g = layers.stops.group; g.clearLayers();
+  if (!layers.stops.on) return;
+  if (map.getZoom() < 15) { if (stopsData.length) status('Durakları görmek için yakınlaştırın'); return; }
+  const b = map.getBounds();
+  let n = 0;
+  for (const s of stopsData) {
+    if (!b.contains([s[3], s[4]])) continue;
+    if (++n > 600) break;
+    L.circleMarker([s[3], s[4]], { renderer: canvas, radius: 5, color: '#fff', weight: 1, fillColor: '#2563eb', fillOpacity: 1 })
+      .bindPopup(`<b>${esc(s[1])}</b><br>Durak no: ${esc(s[0])}<br>${s[2] ? 'Yön: ' + esc(s[2]) : ''}`).addTo(g);
+  }
+}
+
+// ----- metro -----
+async function loadMetro() {
+  try {
+    metro = await api('/api/metro');
+    const g = layers.metro.group; g.clearLayers();
+    for (const s of metro.stations) {
+      const c = LINE_COLORS[s.line] || '#7c3aed';
+      L.circleMarker([s.lat, s.lon], { radius: 6, color: '#fff', weight: 2, fillColor: c, fillOpacity: 1 })
+        .bindPopup(`<span class="tag" style="background:${c}">${esc(s.line)}</span> <b>${esc(s.name)}</b>`).addTo(g);
+    }
+    // hat çizgileri (istasyon sırasına göre)
+    const byLine = {};
+    for (const s of metro.stations) (byLine[s.line] ||= []).push(s);
+    for (const [ln, arr] of Object.entries(byLine)) {
+      arr.sort((a, b) => a.order - b.order);
+      L.polyline(arr.map(s => [s.lat, s.lon]), { color: LINE_COLORS[ln] || '#7c3aed', weight: 4, opacity: .7 }).addTo(g);
+    }
+  } catch (e) { console.warn('metro', e); }
+}
+
+// ----- vapur -----
+async function loadFerries() {
+  try {
+    const d = await api('/api/ferries');
+    const g = layers.ferry.group; g.clearLayers();
+    for (const p of d.piers) {
+      L.circleMarker([p.lat, p.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#0891b2', fillOpacity: 1 })
+        .bindPopup(`⚓ <b>${esc(p.name)}</b> İskelesi`).addTo(g);
+    }
+    for (const v of d.vessels) {
+      L.marker([v.lat, v.lon], { icon: L.divIcon({ className: '', html: `<div style="font-size:22px;transform:rotate(${Math.round(v.course || 0)}deg)">🚢</div>`, iconSize: [24, 24] }) })
+        .bindPopup(`<b>${esc(v.name)}</b><br>Hız: ${(v.speed ?? 0).toFixed(1)} knot`).addTo(g);
+    }
+  } catch (e) { console.warn('ferry', e); }
+}
+
+// ----- konum -----
+let me;
+$('#loc').onclick = () => navigator.geolocation?.getCurrentPosition(p => {
+  const ll = [p.coords.latitude, p.coords.longitude];
+  me ? me.setLatLng(ll) : me = L.circleMarker(ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#0b6bcb', fillOpacity: 1 }).addTo(map);
+  map.setView(ll, 15);
+}, () => status('Konum izni verilmedi'));
+
+map.on('moveend', () => { drawBuses(); drawStops(); });
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+(async () => {
+  api('/api/stops').then(s => { stopsData = s; drawStops(); }).catch(() => {});
+  loadMetro(); loadFerries();
+  await loadBuses();
+  setInterval(() => { loadBuses(); if (lineFilter) showLine(lineFilter); }, 15000);
+  setInterval(loadFerries, 20000);
+})();
+</script>
+</body>
+</html>
