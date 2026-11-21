@@ -957,6 +957,7 @@ const routes = {
   },
   // Marmaray: İBB GTFS'ten çıkarılmış statik hat ve istasyonlar (canlı tren / saat yok)
   '/api/marmaray': () => JSON.parse(fs.readFileSync(new URL('./data/marmaray.json', import.meta.url), 'utf8')),
+  '/api/boundary': () => JSON.parse(fs.readFileSync(new URL('./data/istanbul_boundary.json', import.meta.url), 'utf8')),
   '/api/ispark': () => ispark(),
   '/api/sea': () => { const { lines } = loadSea(); return { lines }; },
   '/api/ferries': () => ({ piers: loadSea().piers, live: !!AIS_KEY, tracked: vessels.size, typed: shipType.size,vessels: [...vessels.values()].filter(v => isPassenger(v.id)) }),

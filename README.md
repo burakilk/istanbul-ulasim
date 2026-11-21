@@ -102,7 +102,7 @@ derlemede bu modüller yoksa uygulama sessiz/ekran kilidiyle çalışmaya devam 
 - **Metro İstanbul**: `api.ibb.gov.tr/MetroIstanbul/api/MetroMobile/V2`.
 - **İBB Açık Veri**: GTFS, hat/durak GeoJSON, deniz ulaşım hatları ve iskeleleri, İSPARK, trafik endeksi ve yol parçaları (UYM).
 - **Şehir Hatları** hat sayfaları: planlı vapur kalkışları (günde bir, nazikçe, diske önbellekli).
-- **OpenStreetMap katkıcıları**: M11 hat geometrisi ve istasyonları (ODbL; kaynak: Overpass API).
+- **OpenStreetMap katkıcıları**: M11 hat geometrisi ve istasyonları, İstanbul il sınırı (haritada il dışını renksiz gösterir) (ODbL).
 - **OSRM** (herkese açık demo sunucusu) ve **OpenStreetMap Nominatim**: yol rotası ve adres arama. Demo sunucularının
   kullanım politikalarına uyun; yoğun kullanım için kendi örneğinizi kurun.
 - **Harita altlığı**: OpenStreetMap karoları.

@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform, Keyboard, Animated,
   PanResponder, useColorScheme, Dimensions, Switch, ActivityIndicator, Linking, Alert,
 } from 'react-native';
-import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
+import MapView, { Marker, Polyline, Polygon, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
 // Sesli yönlendirme isteğe bağlı: yerel modül yoksa (eski derleme) uygulama sessiz çalışır
 let KeepAwake = { activateKeepAwakeAsync: async () => {}, deactivateKeepAwake: () => {} };
@@ -64,6 +64,7 @@ export default function App() {
   const [homeMetro, setHomeMetro] = useState([]); // yakın istasyonlar + sonraki seferler
   const [allPiers, setAllPiers] = useState([]);
   const [sea, setSea] = useState([]);
+  const [boundary, setBoundary] = useState(null); // İstanbul il sınırı: dışı renksiz örtüyle kaplanır
   const [marmaray, setMarmaray] = useState(null); // statik hat + istasyonlar (GTFS)
   const [mbRoute, setMbRoute] = useState(null); // metrobüs ana hattı (34G: Beylikdüzü - Söğütlüçeşme)
   const [layersOpen, setLayersOpen] = useState(false);
@@ -957,6 +958,7 @@ export default function App() {
   }, [on.ispark]);
   useEffect(() => { if (on.ferry && !sea.length) getJSON('/api/sea').then(r => setSea(r.lines || [])).catch(() => {}); }, [on.ferry]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => { getJSON('/api/boundary').then(r => setBoundary(r.ring.map(([la, lo]) => ({ latitude: la, longitude: lo })))).catch(() => {}); }, []);
   useEffect(() => {
     const load = () => getJSON('/api/traffic').then(setTraffic).catch(() => {});
     load(); const id = setInterval(load, 120000); return () => clearInterval(id);
@@ -1347,6 +1349,14 @@ export default function App() {
         ))}
         {panel.type === 'trip' && trip && (
           <Marker coordinate={{ latitude: trip.to.lat, longitude: trip.to.lon }} {...markerProps} anchor={{ x: 0.2, y: 0.9 }} zIndex={7}><Ionicons name="flag" size={34} color="#16a34a" /></Marker>
+        )}
+
+        {/* İstanbul dışı renksiz: dünya dikdörtgeni, İstanbul sınırı delik */}
+        {boundary && (
+          <Polygon
+            coordinates={[{ latitude: 45, longitude: 22 }, { latitude: 45, longitude: 36 }, { latitude: 37, longitude: 36 }, { latitude: 37, longitude: 22 }]}
+            holes={[boundary]} fillColor={scheme === 'dark' ? 'rgba(20,23,26,0.72)' : 'rgba(238,238,238,0.80)'} strokeColor={scheme === 'dark' ? '#4b5563' : '#9ca3af'} strokeWidth={1.5} zIndex={0}
+          />
         )}
 
         {/* kayıtlı yerler: Ev, İş, Yer her zaman haritada */}
