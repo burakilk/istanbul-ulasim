@@ -928,8 +928,21 @@ const routes = {
       if (k === 0) continue;
       segs.push({ id: +id, k, v, c });
     }
+    // Yoğun yollar önce; uzaklaştıkça az parça. Aynı renkli komşu parçalar tek çizgide birleşir (harita nesnesi sayısı düşer).
+    const zoomOut = (north - south) > 0.12;
     segs.sort((a, b) => b.k - a.k);
-    return { at: live.at, total: segs.length, segs: segs.slice(0, 1800) };
+    const kept = segs.filter(x => (zoomOut ? x.k >= 3 : true)).slice(0, zoomOut ? 220 : 320);
+    const byK = new Map(), key = (la, lo) => `${Math.round(la * 4000)}:${Math.round(lo * 4000)}`;
+    const merged = [];
+    for (const sg of kept) { // uç uca eklenebilen aynı sınıf parçalar
+      const list = byK.get(sg.k) || byK.set(sg.k, new Map()).get(sg.k);
+      const head = key(sg.c[0], sg.c[1]), tail = key(sg.c[sg.c.length - 2], sg.c[sg.c.length - 1]);
+      let host = list.get(head);
+      if (host && host.tail === head && host.c.length < 400) { host.c.push(...sg.c.slice(2)); list.delete(head); host.tail = key(host.c[host.c.length - 2], host.c[host.c.length - 1]); list.set(host.tail, host); continue; }
+      const o = { id: sg.id, k: sg.k, v: sg.v, c: sg.c.slice(), tail };
+      merged.push(o); list.set(tail, o);
+    }
+    return { at: live.at, total: segs.length, segs: merged.map(({ id, k, v, c }) => ({ id, k, v, c })) };
   },
   '/api/geocode': async (q) => {
     const t = String(q.get('q') || '').trim();

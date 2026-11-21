@@ -996,12 +996,12 @@ export default function App() {
       const pad = 0.1;
       const q = `s=${(rg.latitude - rg.latitudeDelta / 2 * (1 + pad)).toFixed(4)}&n=${(rg.latitude + rg.latitudeDelta / 2 * (1 + pad)).toFixed(4)}&w=${(rg.longitude - rg.longitudeDelta / 2 * (1 + pad)).toFixed(4)}&e=${(rg.longitude + rg.longitudeDelta / 2 * (1 + pad)).toFixed(4)}`;
       getJSON('/api/traffic/map?' + q).then(r => { if (!dead) setTSegs(r.segs || []); }).catch(() => {});
-    }, 400);
+    }, 900);
     return () => { dead = true; clearTimeout(id); };
-  }, [on.traffic, rg.latitude, rg.longitude, rg.latitudeDelta]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [on.traffic, Math.round(rg.latitude * 60), Math.round(rg.longitude * 60), Math.round(rg.latitudeDelta * 40)]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!on.traffic) return;
-    const id = setInterval(() => setRegion(r => ({ ...r })), 90000); // yoğunluk 1-2 dk'da bir değişir: periyodik yenile
+    const id = setInterval(() => setRegion(r => ({ ...r })), 180000); // yoğunluk 1-2 dk'da bir değişir: periyodik yenile
     return () => clearInterval(id);
   }, [on.traffic]);
 
@@ -1490,12 +1490,33 @@ export default function App() {
         )}
       </View>
 
-      {screen === 'map' && on.traffic && (
-        <Animated.View style={[s.legend, { backgroundColor: t.sheet, bottom: Animated.add(sheetH, new Animated.Value(20)) }]} pointerEvents="none">
-          {[['#22c55e', 'Akıcı'], ['#f59e0b', 'Yavaş'], ['#ef4444', 'Yoğun'], ['#991b1b', 'Tıkalı']].map(([c, l]) => (
-            <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 16, height: 5, borderRadius: 3, backgroundColor: c }} /><Text style={{ color: t.fg, fontSize: 10 }}>{l}</Text></View>
-          ))}
-          {region.latitudeDelta > 0.25 && <Text style={{ color: t.warn, fontSize: 11 }}>yakınlaş</Text>}
+      {screen === 'map' && on.traffic && !nav && (
+        <Animated.View style={[s.legend, { bottom: Animated.add(sheetH, new Animated.Value(16)) }]} pointerEvents="box-none">
+          {region.latitudeDelta > 0.25 ? (
+            <Pressable
+              onPress={() => map.current?.animateToRegion({ latitude: userLoc?.lat ?? region.latitude, longitude: userLoc?.lon ?? region.longitude, latitudeDelta: 0.06, longitudeDelta: 0.06 }, 600)}
+              style={[s.zoomHint, { backgroundColor: t.sheet }]}
+            >
+              <View style={[s.zoomHintIcon, { backgroundColor: t.accentSoft }]}><Ionicons name="scan" size={18} color={t.accent} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: t.fg, fontWeight: '800', fontSize: 14 }} numberOfLines={1}>Yollar için yakınlaş</Text>
+                <Text style={{ color: t.mute, fontSize: 12 }} numberOfLines={1}>Dokun, bölgene gidelim</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={t.mute} />
+            </Pressable>
+          ) : (
+            <View style={[s.legendCard, { backgroundColor: t.sheet }]}>
+              <View style={{ flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden' }}>
+                {['#22c55e', '#f59e0b', '#ef4444', '#991b1b'].map(c => <View key={c} style={{ flex: 1, backgroundColor: c }} />)}
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
+                <Text style={{ color: t.mute, fontSize: 11, fontWeight: '600' }}>Akıcı</Text>
+                <Text style={{ color: t.mute, fontSize: 11, fontWeight: '600' }}>Yavaş</Text>
+                <Text style={{ color: t.mute, fontSize: 11, fontWeight: '600' }}>Yoğun</Text>
+                <Text style={{ color: t.mute, fontSize: 11, fontWeight: '600' }}>Tıkalı</Text>
+              </View>
+            </View>
+          )}
         </Animated.View>
       )}
 
@@ -1587,7 +1608,10 @@ const s = StyleSheet.create({
   zoomBox: { width: 46, borderRadius: 23, overflow: 'hidden', shadowColor: '#000', shadowOpacity: .25, shadowRadius: 8, elevation: 6 },
   zoomBtn: { height: 46, alignItems: 'center', justifyContent: 'center' },
   locWrap: { position: 'absolute', right: 14 },
-  legend: { position: 'absolute', left: 76, right: 76, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 6, borderRadius: 12, shadowColor: '#000', shadowOpacity: .15, shadowRadius: 4, elevation: 3 },
+  legend: { position: 'absolute', left: 66, right: 66 },
+  legendCard: { borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, shadowColor: '#000', shadowOpacity: .18, shadowRadius: 6, elevation: 4 },
+  zoomHint: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 9, shadowColor: '#000', shadowOpacity: .2, shadowRadius: 8, elevation: 5 },
+  zoomHintIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   navTop: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: Platform.OS === 'ios' ? 58 : 40, paddingBottom: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, shadowColor: '#000', shadowOpacity: .3, shadowRadius: 8, elevation: 8 },
   navBottom: { position: 'absolute', left: 12, right: 12, bottom: 28, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 20, shadowColor: '#000', shadowOpacity: .25, shadowRadius: 8, elevation: 8 },
   navBtn: { height: 46, minWidth: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
