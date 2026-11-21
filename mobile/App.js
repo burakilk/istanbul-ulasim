@@ -79,6 +79,7 @@ export default function App() {
   const [recents, setRecents] = usePersisted('recents', []);
   const [layerPanel, setLayerPanel] = useState(null); // 'ferry' | 'ispark' | 'metro': alt panel o katmanın içeriğini gösterir
   const [ferryNext, setFerryNext] = useState(null);
+  const [placeETA, setPlaceETA] = useState({}); // id -> { car:{min,free}, bus:{min,transfers}|null, walk:m }
   const [favMetro, setFavMetro] = usePersisted('favMetro', []); // favori metro/tramvay istasyonları [{id,name,line,lat,lon}]
   const [favMetroTimes, setFavMetroTimes] = useState({});
   const [favParks, setFavParks] = usePersisted('favParks', []); // favori İSPARK otoparkları (id listesi)
@@ -1020,6 +1021,22 @@ export default function App() {
     return () => { dead = true; clearInterval(id); };
   }, [layerPanel, homeLat]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // kayıtlı yerlere sürüş (trafikli) ve toplu taşıma süresi
+  const savedKey = saved.map(x => x.id).join(',');
+  useEffect(() => {
+    if (!userLoc || !saved.length) return;
+    let dead = false;
+    const load = () => saved.forEach(pl => {
+      const d = metres(userLoc.lat, userLoc.lon, pl.lat, pl.lon);
+      if (d < 250) { setPlaceETA(m => ({ ...m, [pl.id]: { near: Math.round(d) } })); return; }
+      const ll = `from=${userLoc.lat.toFixed(5)},${userLoc.lon.toFixed(5)}&to=${pl.lat.toFixed(5)},${pl.lon.toFixed(5)}`;
+      getJSON('/api/drive?' + ll).then(r => { const rt = r.routes[0]; if (!dead && rt) setPlaceETA(m => ({ ...m, [pl.id]: { ...(m[pl.id] || {}), near: undefined, car: { min: rt.traffic / 60, free: rt.free / 60, km: rt.distance / 1000 } } })); }).catch(() => {});
+      getJSON('/api/trip?' + ll).then(r => { const o = r.options?.[0]; if (!dead) setPlaceETA(m => ({ ...m, [pl.id]: { ...(m[pl.id] || {}), near: undefined, bus: o ? { min: o.min, transfers: o.transfers } : null, busDone: true } })); }).catch(() => { if (!dead) setPlaceETA(m => ({ ...m, [pl.id]: { ...(m[pl.id] || {}), busDone: true } })); });
+    });
+    load(); const id = setInterval(load, 240000);
+    return () => { dead = true; clearInterval(id); };
+  }, [savedKey, userLoc ? Math.round(userLoc.lat * 300) : null, userLoc ? Math.round(userLoc.lon * 300) : null]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---- ana sayfa: yakındaki otopark / metro / iskele ----
   const homeLat = userLoc ? Math.round(userLoc.lat * 300) : null, homeLon = userLoc ? Math.round(userLoc.lon * 300) : null;
   useEffect(() => {
@@ -1062,6 +1079,45 @@ export default function App() {
   const layerRows = [['bus', 'bus', 'Otobüsler'], ['metro', 'subway', 'Metro / tramvay / Marmaray'], ['metrobus', 'bus', 'Metrobüs güzergâhı'], ['ferry', 'boat', 'Vapur hatları ve iskeleleri'], ['ispark', 'car', 'İSPARK otoparkları (boş yer)'], ['traffic', 'speedometer', 'Trafik yoğunluğu'], ['stops', 'location', 'Tüm duraklar (yakınlaşınca)']];
 
   const trafficInfo = (i) => (i <= 30 ? ['Akıcı', '#16a34a'] : i <= 50 ? ['Orta', '#ca8a04'] : i <= 70 ? ['Yoğun', '#ea580c'] : ['Çok yoğun', '#dc2626']);
+  const renderPlaceCard = (pl) => {
+    const e = placeETA[pl.id], col = pl.kind === 'home' ? '#2563eb' : pl.kind === 'work' ? '#7c3aed' : '#f59e0b';
+    const ic = pl.kind === 'home' ? 'home' : pl.kind === 'work' ? 'briefcase' : 'star';
+    const tone = e?.car ? trafficTone(e.car.min, e.car.free) : [t.mute, ''];
+    const Pill = ({ icon, color, children, sub }) => (
+      <View style={[s.etaPill, { backgroundColor: t.input }]}>
+        <Ionicons name={icon} size={18} color={color} />
+        <View>
+          <Text style={{ color: t.fg, fontWeight: '800', fontSize: 17 }}>{children}</Text>
+          {sub ? <Text style={{ color: t.mute, fontSize: 11 }}>{sub}</Text> : null}
+        </View>
+      </View>
+    );
+    return (
+      <Pressable key={pl.id} onPress={() => openTrip(pl, 'car', { go: true })} onLongPress={() => askRemove(pl)} style={[s.placeCard, { backgroundColor: t.card }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={[s.placeIcon, { backgroundColor: col }]}><Ionicons name={ic} size={22} color="#fff" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: t.fg, fontWeight: '800', fontSize: 17 }} numberOfLines={1}>{pl.name}</Text>
+            {pl.addr && pl.addr !== pl.name ? <Text style={{ color: t.mute, fontSize: 12 }} numberOfLines={1}>{pl.addr}</Text> : null}
+          </View>
+          <View style={[s.goBadge, { backgroundColor: t.accent }]}><Ionicons name="navigate" size={16} color="#fff" /></View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+          {!userLoc ? <Text style={{ color: t.mute, fontSize: 13 }}>Süre için konum izni gerekli</Text>
+            : e?.near != null ? <Text style={{ color: t.ok, fontWeight: '700', fontSize: 14 }}><Ionicons name="walk" size={15} color={t.ok} /> Buradasın ({fmtDist(e.near)})</Text>
+            : (
+              <>
+                {e?.car ? <Pill icon="car-sport" color={tone[0]} sub={`${e.car.km.toFixed(1)} km · ${tone[1]}`}>{fmtDur(e.car.min)}</Pill> : <View style={[s.etaPill, { backgroundColor: t.input }]}><Skeleton t={t} w={70} h={30} /></View>}
+                {e?.busDone ? (e.bus ? <Pill icon="bus" color={t.accent} sub={e.bus.transfers ? `${e.bus.transfers} aktarma` : 'aktarmasız'}>{fmtDur(e.bus.min)}</Pill>
+                  : <View style={[s.etaPill, { backgroundColor: t.input }]}><Ionicons name="bus" size={18} color={t.mute} /><Text style={{ color: t.mute, fontSize: 12, flexShrink: 1 }}>Otobüs bağlantısı yok</Text></View>)
+                  : <View style={[s.etaPill, { backgroundColor: t.input }]}><Skeleton t={t} w={70} h={30} /></View>}
+              </>
+            )}
+        </View>
+      </Pressable>
+    );
+  };
+
   const renderDashboard = () => {
     const tr = traffic, [tl, tc] = tr ? trafficInfo(tr.index) : ['', t.mute];
     const d = tr ? tr.index - tr.ago30 : 0;
@@ -1172,26 +1228,23 @@ export default function App() {
             ))}
           </View>
 
-          <Text style={{ color: t.fg, fontSize: 17, fontWeight: '800', marginBottom: 8 }}>Kayıtlı yerler</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, flexGrow: 0 }} keyboardShouldPersistTaps="handled">
+          <SectionTitle t={t} icon="bookmark" color={t.accent}>Kayıtlı yerler</SectionTitle>
+          <View style={{ gap: 10, marginBottom: 16 }}>
             {['home', 'work'].map(k => {
               const pl = saved.find(x => x.kind === k);
-              return pl ? (
-                <Pressable key={k} onPress={() => openTrip(pl, 'car', { go: true })} onLongPress={() => askRemove(pl)} style={[s.favChip, { backgroundColor: t.accentSoft, borderColor: t.accent }]}>
-                  <Text style={{ color: t.accent, fontWeight: '800', fontSize: 15 }}><Ionicons name={k === 'home' ? 'home' : 'briefcase'} size={15} color={t.accent} /> {pl.name}  <Ionicons name="navigate" size={13} color={t.accent} /></Text>
-                </Pressable>
-              ) : (
-                <Pressable key={k} onPress={() => startPick(k)} style={[s.favChip, { borderColor: t.line, borderStyle: 'dashed' }]}>
-                  <Text style={{ color: t.mute, fontWeight: '700', fontSize: 15 }}><Ionicons name="add" size={15} color={t.mute} /> {k === 'home' ? 'Ev ekle' : 'İş ekle'}</Text>
+              return pl ? renderPlaceCard(pl) : (
+                <Pressable key={k} onPress={() => startPick(k)} style={[s.placeAdd, { borderColor: t.line }]}>
+                  <View style={[s.placeIcon, { backgroundColor: t.input }]}><Ionicons name={k === 'home' ? 'home-outline' : 'briefcase-outline'} size={22} color={t.mute} /></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: t.fg, fontWeight: '700', fontSize: 16 }}>{k === 'home' ? 'Ev adresi ekle' : 'İş adresi ekle'}</Text>
+                    <Text style={{ color: t.mute, fontSize: 13 }}>Eve/işe kaç dakika sürdüğünü gör</Text>
+                  </View>
+                  <Ionicons name="add-circle" size={26} color={t.accent} />
                 </Pressable>
               );
             })}
-            {saved.filter(x => x.kind === 'place').map(pl => (
-              <Pressable key={pl.id} onPress={() => openTrip(pl, 'car', { go: true })} onLongPress={() => askRemove(pl)} style={[s.favChip, { backgroundColor: t.card, borderColor: t.line }]}>
-                <Text style={{ color: t.fg, fontWeight: '700', fontSize: 15 }} numberOfLines={1}><Ionicons name="star" size={14} color="#f59e0b" /> {pl.name}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+            {saved.filter(x => x.kind === 'place').map(pl => renderPlaceCard(pl))}
+          </View>
 
           {favLines.length > 0 && (
             <>
@@ -1538,6 +1591,11 @@ const s = StyleSheet.create({
   navTop: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: Platform.OS === 'ios' ? 58 : 40, paddingBottom: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, shadowColor: '#000', shadowOpacity: .3, shadowRadius: 8, elevation: 8 },
   navBottom: { position: 'absolute', left: 12, right: 12, bottom: 28, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 20, shadowColor: '#000', shadowOpacity: .25, shadowRadius: 8, elevation: 8 },
   navBtn: { height: 46, minWidth: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  placeCard: { borderRadius: 18, padding: 14 },
+  placeIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  placeAdd: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 18, padding: 14 },
+  etaPill: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  goBadge: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   homeBtnWrap: { position: 'absolute', left: 14 },
   dashCard: { borderRadius: 18, padding: 14, marginBottom: 14 },
   tile: { width: '31.5%', flexGrow: 1, minWidth: 100, borderRadius: 16, padding: 12 },
