@@ -937,7 +937,7 @@ export default function App() {
     );
   };
 
-  useEffect(() => { if (on.metro && !marmaray) getJSON('/api/marmaray').then(setMarmaray).catch(() => {}); }, [on.metro]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (on.metro && (!marmaray || !marmaray.lines.some(l => l.short === 'M11'))) getJSON('/api/marmaray').then(setMarmaray).catch(() => {}); }, [on.metro]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!on.metrobus) return;
     const draw = (r) => {
@@ -1251,7 +1251,7 @@ export default function App() {
           </React.Fragment>
         ))}
         {on.metro && marmaray?.stations.map(st => (
-          <Marker key={`mrs${st.name}`} coordinate={{ latitude: st.lat, longitude: st.lon }} {...markerProps} zIndex={3}
+          <Marker key={`mrs${st.line || "MR"}${st.name}`} coordinate={{ latitude: st.lat, longitude: st.lon }} {...markerProps} zIndex={3}
             onPress={(e) => { e?.stopPropagation?.(); showItem({ icon: 'train', title: `${st.name} (${st.line || 'Marmaray'})`, color: st.line === 'M11' ? '#8b5a2b' : '#1d4ed8', rows: [['Hat', st.line || 'Marmaray'], ['Not', 'Planlı hat (İBB GTFS / OpenStreetMap); sefer saati ve canlı tren yok']] }); }}>
             <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', borderWidth: 3.5, borderColor: st.line === 'M11' ? '#8b5a2b' : '#1d4ed8' }} />
           </Marker>
