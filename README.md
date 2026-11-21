@@ -13,13 +13,28 @@ Expo (React Native) mobil uygulaması + bağımlılıksız bir Node.js sunucusun
 | **Ana sayfa** | Trafik endeksi, kategori kartları, kayıtlı yerler (Ev / İş), favori hat / durak / metro / otopark | – |
 | **Otobüs** | Canlı otobüs konumu, hat güzergâhı ve animasyonu, gidiş/dönüş rengi, yön oku, durak varış tahmini, hat uyarıları, planlı kalkış saatleri | İETT SOAP, iett.istanbul |
 | **Metro / tramvay** | Hatlar, istasyonlar, yakın istasyonda sıradaki seferler | Metro İstanbul API |
-| **Marmaray** | Hat çizgisi ve istasyonlar (statik) | İBB GTFS |
+| **Marmaray ve M11** | Marmaray ile Havalimanı metrosu (M11) hat çizgisi ve istasyonları (statik, planlı) | İBB GTFS, OpenStreetMap |
 | **Metrobüs** | Hat çizgisi ve duraklar | İBB GeoJSON / GTFS |
 | **Vapur** | Resmî hat çizgileri, iskeleler, iskeleden planlı kalkışlar | İBB GeoJSON, Şehir Hatları sitesi |
 | **İSPARK** | Canlı boş yer sayısı, favori otopark | İBB İSPARK API |
 | **Trafik** | Şehir geneli endeks + yol yol renkli trafik haritası | İBB UYM |
 | **Rota** | Toplu taşıma (aktarmalı, canlı ilk otobüs) ve **araçla navigasyon** (trafikli süre, Türkçe sesli yönlendirme, yeniden rota, akıcı sürüş kamerası) | OSRM, OSM Nominatim |
 | **Arama** | Hat, durak ve adres tek kutuda | – |
+
+## Ekran görüntüleri
+
+<p align="center">
+  <img src="docs/screenshots/01-anasayfa.png" width="23%" alt="Ana sayfa">
+  <img src="docs/screenshots/02-trafik.png" width="23%" alt="Trafik haritası">
+  <img src="docs/screenshots/03-metro.png" width="23%" alt="Metro ve sonraki seferler">
+  <img src="docs/screenshots/04-ispark.png" width="23%" alt="İSPARK otoparkları">
+</p>
+<p align="center">
+  <img src="docs/screenshots/06-hat.png" width="23%" alt="Hat modu: güzergâh, canlı otobüsler, planlı kalkış">
+  <img src="docs/screenshots/05-ispark-detay.png" width="23%" alt="Otopark kartı">
+</p>
+
+*Ana sayfa · renkli trafik · metro · İSPARK · hat modu · otopark kartı. Görüntüler iOS Simülatörü'nden, canlı veriyle alınmıştır.*
 
 ## Mimari
 
@@ -87,6 +102,7 @@ derlemede bu modüller yoksa uygulama sessiz/ekran kilidiyle çalışmaya devam 
 - **Metro İstanbul**: `api.ibb.gov.tr/MetroIstanbul/api/MetroMobile/V2`.
 - **İBB Açık Veri**: GTFS, hat/durak GeoJSON, deniz ulaşım hatları ve iskeleleri, İSPARK, trafik endeksi ve yol parçaları (UYM).
 - **Şehir Hatları** hat sayfaları: planlı vapur kalkışları (günde bir, nazikçe, diske önbellekli).
+- **OpenStreetMap katkıcıları**: M11 hat geometrisi ve istasyonları (ODbL; kaynak: Overpass API).
 - **OSRM** (herkese açık demo sunucusu) ve **OpenStreetMap Nominatim**: yol rotası ve adres arama. Demo sunucularının
   kullanım politikalarına uyun; yoğun kullanım için kendi örneğinizi kurun.
 - **Harita altlığı**: OpenStreetMap karoları.

@@ -1247,13 +1247,13 @@ export default function App() {
         {on.metro && marmaray?.lines.map((l, i) => (
           <React.Fragment key={`mr${i}`}>
             <Polyline coordinates={Array.from({ length: l.c.length / 2 }, (_, j) => ({ latitude: l.c[2 * j], longitude: l.c[2 * j + 1] }))} strokeColor="#ffffff" strokeWidth={7} zIndex={1} />
-            <Polyline coordinates={Array.from({ length: l.c.length / 2 }, (_, j) => ({ latitude: l.c[2 * j], longitude: l.c[2 * j + 1] }))} strokeColor="#1d4ed8" strokeWidth={4} zIndex={2} />
+            <Polyline coordinates={Array.from({ length: l.c.length / 2 }, (_, j) => ({ latitude: l.c[2 * j], longitude: l.c[2 * j + 1] }))} strokeColor={l.color || '#1d4ed8'} strokeWidth={4} zIndex={2} />
           </React.Fragment>
         ))}
         {on.metro && marmaray?.stations.map(st => (
           <Marker key={`mrs${st.name}`} coordinate={{ latitude: st.lat, longitude: st.lon }} {...markerProps} zIndex={3}
-            onPress={(e) => { e?.stopPropagation?.(); showItem({ icon: 'train', title: `${st.name} (Marmaray)`, color: '#1d4ed8', rows: [['Hat', 'Marmaray'], ['Not', 'Planlı hat verisi; sefer saati ve canlı tren yok']] }); }}>
-            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', borderWidth: 3.5, borderColor: '#1d4ed8' }} />
+            onPress={(e) => { e?.stopPropagation?.(); showItem({ icon: 'train', title: `${st.name} (${st.line || 'Marmaray'})`, color: st.line === 'M11' ? '#8b5a2b' : '#1d4ed8', rows: [['Hat', st.line || 'Marmaray'], ['Not', 'Planlı hat (İBB GTFS / OpenStreetMap); sefer saati ve canlı tren yok']] }); }}>
+            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', borderWidth: 3.5, borderColor: st.line === 'M11' ? '#8b5a2b' : '#1d4ed8' }} />
           </Marker>
         ))}
         {on.metro && metroLines.map(l => <Polyline key={l.ln} coordinates={l.coords} strokeColor={LINE_COLORS[l.ln] || '#7c3aed'} strokeWidth={4} />)}
